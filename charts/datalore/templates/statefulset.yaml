@@ -54,22 +54,42 @@ spec:
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "datalore.fullname" . }}-db
-                  key: ROOT_PASSWORD
+                  name: {{ include "datalore.databaseSecretName" . }}
+                  key: {{ quote .Values.databaseSecret.key }}
             - name: DATABASES_CONNECTION_CHECKER_K8S_YAML
               value: file:///opt/datalore/configs/databases/connection_checker.yaml
             - name: DATABASES_INTROSPECTION_K8S_YAML
               value: file:///opt/datalore/configs/databases/introspection.yaml
             - name: DATABASES_NAMESPACES_LOADER_K8S_YAML
               value: file:///opt/datalore/configs/databases/namespaces_loader.yaml
+            - name: SQL_SESSION_K8S_YAML
+              value: file:///opt/datalore/configs/databases/sql_session.yaml
             {{- if .Values.plansConfig }}
             - name: DATALORE_PLANS_CONFIGURATION
               value: file:///opt/datalore/configs/plans_config.yaml
             {{- end }}
-            - name: SQL_SERVER_HOST
-              value: {{ .Values.sqlServerHost | default "datalore" | quote }}
-            - name: SQL_SERVER_PORT
-              value: {{ .Values.sqlServerPort | default "8081" | quote }}
+            - name: SQL_CELLS_API_HOST
+              value: {{ .Values.sqlCellsApiHost | default "datalore" | quote }}
+            - name: SQL_CELLS_API_PORT
+              value: {{ .Values.sqlCellsApiPort | default "8081" | quote }}
+            {{- if .Values.external.enabled }}
+            - name: EXTERNAL_SERVER_URL
+              value: {{ .Values.external.serverUrl | default "http://127.0.0.1:8111" }}
+            - name: EXTERNAL_USER
+              value: {{ .Values.external.user | default "" }}
+            - name: EXTERNAL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "datalore.fullname" . }}-external
+                  key: EXTERNAL_PASSWORD
+            {{- end }}
+          envFrom:
+            - secretRef:
+                name: {{ include "datalore.fullname" . }}-user-env
+            {{- if .Values.dataloreEnvExternalSecret }}
+            - secretRef:
+                name: {{ .Values.dataloreEnvExternalSecret }}
+            {{- end }}
           volumeMounts:
             - mountPath: /opt/datalore/configs/agents-config.yaml
               name: agents-config
@@ -79,9 +99,6 @@ spec:
             - mountPath: /opt/datalore/jetty/resources/logback.xml
               name: logback-config
               subPath: logback.xml
-            - mountPath: /opt/datalore/configs/env.sh
-              name: secret-env
-              subPath: user_secret_env.sh
             - mountPath: /opt/data
               name: storage
             {{- if .Values.customEnvs }}
@@ -109,13 +126,45 @@ spec:
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "datalore.fullname" . }}-db
-                  key: ROOT_PASSWORD
+                  name: {{ include "datalore.databaseSecretName" . }}
+                  key: {{ quote .Values.databaseSecret.key }}
           volumeMounts:
             - mountPath: /var/lib/postgresql/data
               name: postgresql-data
           resources:
             {{- toYaml .Values.postgresResources | nindent 12 }}
+        {{- end }}
+        {{- if .Values.external.enabled }}
+        - name: external-server
+          securityContext:
+            {{- toYaml .Values.externalSecurityContext | nindent 12 }}
+          image: "{{ .Values.externalImage.repository }}:{{ .Values.dataloreVersion | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.externalImage.pullPolicy }}
+          readinessProbe:
+            httpGet:
+              path: /login.html
+              port: external-server
+            initialDelaySeconds: 20
+          ports:
+            - name: external-server
+              containerPort: 8111
+          volumeMounts:
+            - mountPath: /data/volume
+              name: external
+            - mountPath: /opt/bazel/license.keys
+              name: external-license
+              subPath: license.keys
+          env:
+            - name: DEFAULT_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "datalore.fullname" . }}-db
+                  key: ROOT_PASSWORD
+            - name: EXTERNAL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "datalore.fullname" . }}-external
+                  key: EXTERNAL_PASSWORD
         {{- end }}
       volumes:
         - name: agents-config
@@ -137,9 +186,11 @@ spec:
         - name: databases-configs
           configMap:
             name: {{ include "datalore.fullname" . }}-databases-config
-        - name: secret-env
+        {{- if .Values.external.enabled }}
+        - name: external-license
           secret:
-            secretName: {{ include "datalore.fullname" . }}-user-env
+            secretName: {{ include "datalore.fullname" . }}-external-license
+        {{- end }}
         {{- if .Values.volumes }}
         {{- toYaml .Values.volumes | nindent 8 }}
         {{- end }}

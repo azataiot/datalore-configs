@@ -1,0 +1,122 @@
+dataloreVersion: ""
+
+serverImage:
+  repository: jetbrains/datalore-server
+  pullPolicy: IfNotPresent
+postgresImage:
+  repository: jetbrains/datalore-postgres
+  pullPolicy: IfNotPresent
+databaseCommandImage:
+  repository: jetbrains/datalore-database-command
+  pullPolicy: IfNotPresent
+sqlSessionImage:
+  repository: jetbrains/datalore-sql-session
+  pullPolicy: IfNotPresent
+externalImage:
+  repository: jetbrains/datalore-external
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+dataloreSecurityContext:
+  runAsUser: 5000
+postgresSecurityContext:
+  runAsUser: 999
+externalSecurityContext:
+  runAsUser: 1000
+
+securityContext:
+  fsGroup: 5000
+
+service:
+  type: ClusterIP
+  port: 8080
+
+computationPort: 4060
+
+nodePorts:
+  enabled: false
+  httpPort: 30090
+  agentsManagerPort: 30091
+  computationPort: 30092
+  httpInternalPort: 30093
+  externalServerPort: 30094
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+dataloreResources: {}
+postgresResources: {}
+
+volumes: []
+#  - name: storage
+#    emptyDir: { }
+#  - name: postgresql-data
+#    emptyDir: { }
+
+volumeClaimTemplates: []
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+databaseSecret:
+  # Specifies whether a secret should be created
+  create: true
+  # Annotations to add to the secret
+  annotations: {}
+  # The name of the secret to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+  # Set if create is true
+  password: ""
+  # Secret key name with a password for PostgreSQL
+  key: ROOT_PASSWORD
+
+internalDatabase: true
+
+sqlCellsApiHost: ""
+sqlCellsApiPort: ""
+
+external:
+  enabled: false
+  token: ""
+  license: ""
+
+agentsConfig: {}
+connectionChecker: {}
+introspection: {}
+namespacesLoader: {}
+sqlSession: {}
+plansConfig: []
+logbackConfig: ""
+customEnvs: {}
+dataloreEnv: {}

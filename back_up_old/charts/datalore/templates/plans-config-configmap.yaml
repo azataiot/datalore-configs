@@ -1,0 +1,11 @@
+{{- if .Values.plansConfig }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "datalore.fullname" . }}-plans-config
+  labels:
+    {{- include "datalore.labels" . | nindent 4 }}
+data:
+  plans_config.yaml: |-
+{{- toYaml .Values.plansConfig | nindent 4 }}
+{{- end }}

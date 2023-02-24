@@ -1,0 +1,10 @@
+{{- if .Values.customEnvs }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "datalore.fullname" . }}-envs-config
+  labels:
+    {{- include "datalore.labels" . | nindent 4 }}
+data:
+{{- toYaml .Values.customEnvs | nindent 2 }}
+{{- end }}

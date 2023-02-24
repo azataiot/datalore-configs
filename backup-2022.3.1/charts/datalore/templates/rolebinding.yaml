@@ -1,0 +1,15 @@
+{{- if .Values.serviceAccount.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "datalore.fullname" . }}
+  labels:
+    {{- include "datalore.labels" . | nindent 4 }}
+roleRef:
+  kind: Role
+  name: {{ include "datalore.fullname" . }}
+  apiGroup: ""
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "datalore.fullname" . }}
+{{- end }}

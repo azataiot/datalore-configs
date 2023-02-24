@@ -1,5 +1,3 @@
-replicaCount: 1
-
 dataloreVersion: ""
 
 serverImage:
@@ -10,6 +8,12 @@ postgresImage:
   pullPolicy: IfNotPresent
 databaseCommandImage:
   repository: jetbrains/datalore-database-command
+  pullPolicy: IfNotPresent
+sqlSessionImage:
+  repository: jetbrains/datalore-sql-session
+  pullPolicy: IfNotPresent
+externalImage:
+  repository: jetbrains/datalore-external
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -31,6 +35,8 @@ dataloreSecurityContext:
   runAsUser: 5000
 postgresSecurityContext:
   runAsUser: 999
+externalSecurityContext:
+  runAsUser: 1000
 
 securityContext:
   fsGroup: 5000
@@ -47,6 +53,7 @@ nodePorts:
   agentsManagerPort: 30091
   computationPort: 30092
   httpInternalPort: 30093
+  externalServerPort: 30094
 
 ingress:
   enabled: false
@@ -81,17 +88,36 @@ tolerations: []
 
 affinity: {}
 
-dbRootPassword: ""
+databaseSecret:
+  # Specifies whether a secret should be created
+  create: true
+  # Annotations to add to the secret
+  annotations: {}
+  # The name of the secret to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+  # Set if create is true
+  password: ""
+  # Secret key name with a password for PostgreSQL
+  key: ROOT_PASSWORD
+
 internalDatabase: true
 
-sqlServerHost: ""
-sqlServerPort: ""
+sqlCellsApiHost: ""
+sqlCellsApiPort: ""
+
+external:
+  enabled: false
+  token: ""
+  license: ""
 
 agentsConfig: {}
 connectionChecker: {}
 introspection: {}
 namespacesLoader: {}
+sqlSession: {}
 plansConfig: []
 logbackConfig: ""
 customEnvs: {}
 dataloreEnv: {}
+dataloreEnvExternalSecret: ""

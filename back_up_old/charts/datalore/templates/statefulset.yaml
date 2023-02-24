@@ -1,0 +1,157 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "datalore.fullname" . }}
+  labels:
+    {{- include "datalore.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  serviceName: {{ include "datalore.fullname" . }}
+  selector:
+    matchLabels:
+      {{- include "datalore.selectorLabels" . | nindent 6 }}
+  {{- with .Values.volumeClaimTemplates }}
+  volumeClaimTemplates:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+    {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      labels:
+        {{- include "datalore.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "datalore.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.securityContext | nindent 8 }}
+      containers:
+        - name: datalore
+          securityContext:
+            {{- toYaml .Values.dataloreSecurityContext | nindent 12 }}
+          image: "{{ .Values.serverImage.repository }}:{{ .Values.dataloreVersion | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.serverImage.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: http-internal
+              containerPort: 8081
+            - name: agents-manager
+              containerPort: 5050
+            - name: computation
+              containerPort: {{ .Values.computationPort }}
+          livenessProbe:
+            initialDelaySeconds: 120
+            httpGet:
+              path: /health
+              port: http
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "datalore.fullname" . }}-db
+                  key: ROOT_PASSWORD
+            - name: DATABASES_CONNECTION_CHECKER_K8S_YAML
+              value: file:///opt/datalore/configs/databases/connection_checker.yaml
+            - name: DATABASES_INTROSPECTION_K8S_YAML
+              value: file:///opt/datalore/configs/databases/introspection.yaml
+            - name: DATABASES_NAMESPACES_LOADER_K8S_YAML
+              value: file:///opt/datalore/configs/databases/namespaces_loader.yaml
+            {{- if .Values.plansConfig }}
+            - name: DATALORE_PLANS_CONFIGURATION
+              value: file:///opt/datalore/configs/plans_config.yaml
+            {{- end }}
+            - name: SQL_SERVER_HOST
+              value: {{ .Values.sqlServerHost | default "datalore" | quote }}
+            - name: SQL_SERVER_PORT
+              value: {{ .Values.sqlServerPort | default "8081" | quote }}
+          volumeMounts:
+            - mountPath: /opt/datalore/configs/agents-config.yaml
+              name: agents-config
+              subPath: agents-config.yaml
+            - mountPath: /opt/datalore/configs/databases
+              name: databases-configs
+            - mountPath: /opt/datalore/jetty/resources/logback.xml
+              name: logback-config
+              subPath: logback.xml
+            - mountPath: /opt/datalore/configs/env.sh
+              name: secret-env
+              subPath: user_secret_env.sh
+            - mountPath: /opt/data
+              name: storage
+            {{- if .Values.customEnvs }}
+            - mountPath: /opt/datalore/configs/environment_info
+              name: envs
+            {{- end }}
+            {{- if .Values.plansConfig }}
+            - mountPath: /opt/datalore/configs/plans_config.yaml
+              name: plans-config
+              subPath: plans_config.yaml
+            {{- end }}
+          resources:
+            {{- toYaml .Values.dataloreResources | nindent 12 }}
+        {{- if .Values.internalDatabase }}
+        - name: postgres
+          securityContext:
+            {{- toYaml .Values.postgresSecurityContext | nindent 12 }}
+          image: "{{ .Values.postgresImage.repository }}:{{ .Values.dataloreVersion | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.postgresImage.pullPolicy }}
+          ports:
+            - containerPort: 5432
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/db-data
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "datalore.fullname" . }}-db
+                  key: ROOT_PASSWORD
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: postgresql-data
+          resources:
+            {{- toYaml .Values.postgresResources | nindent 12 }}
+        {{- end }}
+      volumes:
+        - name: agents-config
+          configMap:
+            name: {{ include "datalore.fullname" . }}-agents-config
+        - name: logback-config
+          configMap:
+            name: {{ include "datalore.fullname" . }}-logback-config
+        {{- if .Values.customEnvs }}
+        - name: envs
+          configMap:
+            name: {{ include "datalore.fullname" . }}-envs-config
+        {{- end }}
+        {{- if .Values.plansConfig }}
+        - name: plans-config
+          configMap:
+            name: {{ include "datalore.fullname" . }}-plans-config
+        {{- end }}
+        - name: databases-configs
+          configMap:
+            name: {{ include "datalore.fullname" . }}-databases-config
+        - name: secret-env
+          secret:
+            secretName: {{ include "datalore.fullname" . }}-user-env
+        {{- if .Values.volumes }}
+        {{- toYaml .Values.volumes | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

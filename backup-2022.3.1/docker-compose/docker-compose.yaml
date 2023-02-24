@@ -1,0 +1,48 @@
+version: "3.9"
+services:
+  datalore:
+    image: jetbrains/datalore-server:2022.3.1
+    restart: always
+    ports:
+      - "8080:8080"
+    expose: [ "8081", "5050", "4060" ]
+    networks:
+      - datalore-agents-network
+      - datalore-backend-network
+      - traefik-public
+    volumes:
+      - "/home/azat/datalore/datalore-storage:/opt/data"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    environment:
+      DB_PASSWORD: "Azat.AI2021@#."
+      DATABASES_DOCKER_NETWORK: "datalore-agents-network"
+      SQL_SESSION_DOCKER_NETWORK: "datalore-agents-network"
+      DATALORE_PUBLIC_URL: "https://datalore.azat.ai"
+    labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=traefik-public"
+        - "traefik.http.routers.datalore-secure.entrypoints=https"
+        - "traefik.http.routers.datalore-secure.rule=Host(`datalore.azat.ai`)"
+        - "traefik.http.routers.datalore-secure.service=datalore-service"
+        - "traefik.http.services.datalore-service.loadbalancer.server.port=8080"
+
+  postgresql:
+    image: jetbrains/datalore-postgres:2022.3.1
+    expose: [ "5432" ]
+    networks:
+      - datalore-backend-network
+      - traefik-public
+    volumes:
+      - "/home/azat/datalore/postgresql-data:/var/lib/postgresql/data"
+    environment:
+      POSTGRES_PASSWORD: "Azat.AI2021@#."
+volumes:
+  postgresql-data: { }
+  datalore-storage: { }
+networks:
+  datalore-agents-network:
+    name: datalore-agents-network
+  datalore-backend-network:
+    name: datalore-backend-network
+  traefik-public:
+    external: true
